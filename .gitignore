@@ -57,3 +57,15 @@ server.log
 !/data/panel/ru-ipv4.txt
 download/
 upload/
+
+# Инфраструктура песочницы (не для GitHub)
+.zscripts/
+Caddyfile
+examples/
+mini-services/
+tests/
+db/
+prisma/
+download/*
+!download/.gitkeep
+src/lib/db.ts

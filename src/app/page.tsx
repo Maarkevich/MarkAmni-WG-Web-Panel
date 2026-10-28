@@ -15,6 +15,7 @@ import RoutingView from '@/components/panel/RoutingView';
 import TelegramView from '@/components/panel/TelegramView';
 import AdminsView from '@/components/panel/AdminsView';
 import LogsView from '@/components/panel/LogsView';
+import DomainView from '@/components/panel/DomainView';
 import { api, type SessionUser, type PanelState, type Dashboard as DashboardData } from '@/lib/awg/client';
 
 interface ToastItem { id: number; msg: string; type: 'success' | 'error' | 'info' }
@@ -116,6 +117,7 @@ export default function Home() {
         {activeView === 'clients' && <ClientsView state={state} toast={toast} />}
         {activeView === 'server' && <ServerView state={state} setState={setState} toast={toast} />}
         {activeView === 'routing' && <RoutingView state={state} toast={toast} />}
+        {activeView === 'domain' && <DomainView toast={toast} />}
         {activeView === 'telegram' && <TelegramView toast={toast} />}
         {activeView === 'admins' && <AdminsView user={user} onUser={setUser} toast={toast} />}
         {activeView === 'logs' && <LogsView toast={toast} />}

@@ -5,19 +5,20 @@
 // ============================================
 import { useState, type ReactNode } from 'react';
 import {
-  Shield, LayoutDashboard, Users, Server, Globe, Send, UserCog, ScrollText,
+  Shield, LayoutDashboard, Users, Server, Globe, Send, UserCog, ScrollText, Link,
   Menu, X, LogOut, RefreshCw, Wifi, WifiOff
 } from 'lucide-react';
 import { Badge } from './bits';
 import type { PanelState, SessionUser } from '@/lib/awg/client';
 
-export type ViewKey = 'dashboard' | 'clients' | 'server' | 'routing' | 'telegram' | 'admins' | 'logs';
+export type ViewKey = 'dashboard' | 'clients' | 'server' | 'routing' | 'domain' | 'telegram' | 'admins' | 'logs';
 
 export const NAV: { key: ViewKey; label: string; icon: ReactNode; perm: string }[] = [
   { key: 'dashboard', label: 'Дашборд', icon: <LayoutDashboard className="w-[18px] h-[18px]" />, perm: 'dashboard' },
   { key: 'clients', label: 'Клиенты', icon: <Users className="w-[18px] h-[18px]" />, perm: 'clients' },
   { key: 'server', label: 'Сервер', icon: <Server className="w-[18px] h-[18px]" />, perm: 'server' },
   { key: 'routing', label: 'Маршрутизация', icon: <Globe className="w-[18px] h-[18px]" />, perm: 'routing' },
+  { key: 'domain', label: 'Домен', icon: <Link className="w-[18px] h-[18px]" />, perm: 'server' },
   { key: 'telegram', label: 'Telegram', icon: <Send className="w-[18px] h-[18px]" />, perm: 'telegram' },
   { key: 'admins', label: 'Администраторы', icon: <UserCog className="w-[18px] h-[18px]" />, perm: 'admins' },
   { key: 'logs', label: 'Журнал', icon: <ScrollText className="w-[18px] h-[18px]" />, perm: 'logs' }

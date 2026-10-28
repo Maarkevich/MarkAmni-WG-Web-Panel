@@ -59,10 +59,20 @@ export interface TelegramSettings {
   notify: { created: boolean; expired: boolean; limit: boolean; disabled: boolean };
 }
 
+export interface DomainSettings {
+  name: string;
+  email: string;
+  sslEnabled: boolean;
+  nginxEnabled: boolean;
+  lastSetup?: string;
+  lastError?: string;
+}
+
 export interface Settings {
   panelName: string;
   server: ServerSettings;
   telegram: TelegramSettings;
+  domain?: DomainSettings;
 }
 
 export interface ClientUsage {
@@ -90,7 +100,7 @@ export interface Client {
 }
 
 export type Role = 'root' | 'admin';
-export type Perm = 'dashboard' | 'clients' | 'server' | 'routing' | 'telegram' | 'admins' | 'logs';
+export type Perm = 'dashboard' | 'clients' | 'server' | 'routing' | 'telegram' | 'admins' | 'logs' | 'domain';
 
 export interface Admin {
   id: string;

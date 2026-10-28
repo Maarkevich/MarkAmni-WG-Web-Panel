@@ -1,152 +1,142 @@
-# AmneziaWG Panel
+# MarkAmni WG Web Panel
 
-Веб-панель для создания и управления конфигами **AmneziaWG (AWG)** — с обфускацией трафика против DPI-блокировок, поддержкой протоколов **AWG 1.5 / 2.0 / 3.1**, Telegram-ботом, телеметрией сервера и экспортом конфигов в приложение AmneziaVPN (`.conf`, QR-код, ссылка `vpn://`).
+**Modern Web Management Panel for AmneziaWG 3.1 / WireGuard**
 
-Устанавливается одной командой на VPS (Ubuntu/Debian). Тёмный адаптивный интерфейс — десктоп и мобильные экраны.
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)](https://www.typescriptlang.org/)
 
----
-
-## Возможности
-
-| Раздел | Что умеет |
-|---|---|
-| **Дашборд** | Онлайн-клиенты, трафик (сутки/всего/через туннель), живой график приёма/отдачи, CPU/RAM/диск/аптайм, топ клиентов, журнал событий |
-| **Клиенты** | Добавление в 1 клик (ключи Curve25519 + PSK и IP генерируются автоматически), вкл/выкл, лимит трафика (ГБ), срок действия, ротация ключей, поиск. Экспорт: `.conf`, QR-код, `vpn://` для AmneziaVPN |
-| **Сервер** | Endpoint, порт, подсеть, DNS, keepalive, NAT-интерфейс; применение конфига (`awg-quick`), рестарт интерфейса, ротация ключей сервера, просмотр серверного конфига |
-| **Обфускация AWG** | Полный набор параметров AmneziaWG: `Jc, Jmin, Jmax, S1, S2` + для 2.0/3.1 `S3, S4, I1–I5` (CPS-сигнатуры QUIC) + для 3.1 `HeaderProtectionKey, ContentPaddingAddition`, таймеры. Валидация правил (S1+56≠S2, непересекающиеся диапазоны H1–H4 и т.д.). Случайные пресеты: лёгкий / стандартный / максимальная маскировка |
-| **Маршрутизация** | Режимы: полный туннель, «только Россия» (geoip:ru), «без домашней сети» (RFC1918), свой список AllowedIPs. База подсетей РФ (~11 000 IPv4 + IPv6) с обновлением из ipverse/ipdeny |
-| **Telegram-бот** | `/status`, `/peers`, `/add Имя` (создаёт клиента и присылает .conf + QR + vpn://), `/on`, `/off`, `/del`. Привязка чатов по одноразовому коду, уведомления о событиях |
-| **Администраторы** | Главный админ (создаётся установщиком автоматически) + ограниченные админы с гибкими правами (дашборд/клиенты/сервер/маршрутизация/telegram/админы/журнал), смена пароля, бэкап/восстановление |
-| **Журнал** | Аудит всех действий: входы, клиенты, настройки, бэкапы |
-
-Безопасность: bcrypt-пароли, HMAC-JWT сессии (cookie HttpOnly, 12 ч), rate-limit на вход (8 попыток/мин), права проверяются на сервере для каждого API-запроса.
+A powerful, self-hosted web interface for managing AmneziaWG and WireGuard VPN servers. Built with Next.js 16, Tailwind CSS 4.
 
 ---
 
-## Установка на VPS
+## 🇷🇺 На русском
 
-### Требования
-- **Ubuntu 20.04+ / Debian 11+**, root-доступ
-- 1 ГБ RAM минимум (при <1.8 ГБ установщик временно создаст swap для сборки)
-- Открытый UDP-порт для VPN (по умолчанию 51820)
+**MarkAmni WG Web Panel** — это современная веб-панель для управления серверами AmneziaWG 3.1 и WireGuard.
 
-### Быстрая установка
+### Возможности
+- 🚀 **Полная поддержка AmneziaWG 3.1** — все параметры обфускации (Jc, Jmin, Jmax, S1-S4, H1-H4, I1-I5, HeaderProtectionKey и др.)
+- 👥 **Управление клиентами** — создание, удаление, включение/отключение пиров
+- 📱 **QR-коды и конфиги** — мгновенная генерация конфигов и QR-кодов для импорта в AmneziaVPN
+- 🔒 **Безопасность** — авторизация через JWT-токены
+- 🎨 **Современный UI** — тёмная тема, адаптивный дизайн, Tailwind CSS 4
+- 📊 **Статистика** — мониторинг подключений, CPU, RAM, диска
+- 🛠 **Простая установка** — один скрипт для развёртывания
+
+### Быстрый старт
 
 ```bash
-# 1. Склонируйте репозиторий на сервер
-git clone https://github.com/ВАШ_ЛОГИН/amneziawg-panel.git
-cd amneziawg-panel
+# Клонировать репозиторий
+git clone https://github.com/Maarkevich/MarkAmni-WG-Web-Panel.git
+cd MarkAmni-WG-Web-Panel
 
-# 2. Запустите установщик (все шаги автоматические)
-sudo bash install.sh
-
-# С доменом и SSL:
-sudo bash install.sh --domain vpn.example.com --email you@mail.ru
-```
-
-Установщик:
-1. Поставит зависимости, **модуль ядра AmneziaWG (amneziawg-dkms) и утилиты awg/awg-quick** из PPA `amnezia/ppa` (fallback — сборка из исходников);
-2. Установит Node.js 20, соберёт панель и создаст systemd-сервис `awg-panel`;
-3. **Автоматически создаст главного администратора** — логин и пароль будут выведены в консоль в конце установки и сохранены в `/opt/awg-panel/data/panel/initial-credentials.txt`;
-4. Настроит **Nginx + бесплатный SSL (Let's Encrypt)** — если указан домен;
-5. Включит `ip_forward` и откроет порты в UFW.
-
-После установки: откройте `https://ваш-домен` (или `http://IP:3080`), войдите, **смените пароль** и создайте клиентов.
-
-### Полезные команды
-
-```bash
-systemctl status awg-panel      # статус панели
-journalctl -u awg-panel -f      # логи панели
-awg show                        # статус туннеля
-awg-quick down awg0 && awg-quick up awg0   # ручной рестарт интерфейса
-```
-
----
-
-## Экспорт в AmneziaVPN
-
-Панель даёт три способа передать конфиг клиенту:
-
-1. **Файл `.conf`** — скачать и импортировать в приложении («+» → «Файл»);
-2. **QR-код** — сканируется прямо из панели («+» → «Сканер QR»);
-3. **Ссылка `vpn://`** — копируется и вставляется в чат; получатель в AmneziaVPN жмёт «+» → «Вставить из буфера». Формат — официальный JSON-контейнер `amnezia-awg` (base64url), совместим с AmneziaVPN 4.x+.
-
----
-
-## Маршрутизация и обход блокировок (geoip:ru / geosite:ru)
-
-AWG-туннель маршрутизирует по **IP-подсетям** (поле `AllowedIPs`). Панель поддерживает:
-
-- **Полный туннель** — `0.0.0.0/0, ::/0`;
-- **Только Россия** — через VPN идут только подсети РФ (geoip:ru, ~11 000 сетей): банк и госуслуги работают напрямую, остальное через туннель. Список обновляется кнопкой из источников `ipverse/ru` (GitHub) → `ipdeny.com`;
-- **Без домашней сети** — весь трафик через VPN, кроме RFC1918/локальных диапазонов;
-- **Свой список** — произвольные AllowedIPs на клиента.
-
-> Примечание: geosite-правила (по доменам) в WireGuard-подобных туннелях не работают — домены резолвятся в IP уже за пределами правила. Для AWG применяется geoip-подход по подсетям, что и реализовано. Автообновление списка можно повесить на cron (эндпоинт `POST /api/routing { "action": "ru-update" }`).
-
-### Рекомендации по обфускации
-
-- Не публикуйте параметры `H1–H4` — это «отпечаток» вашего сервера для DPI;
-- Кнопка **«Максимальная маскировка»** генерирует агрессивный набор (крупный мусорный трафик, CPS-сигнатуры QUIC) — выше защита, чуть больше оверхед;
-- При смене версии протокола (1.5 → 2.0 → 3.1) панель генерирует новый корректный набор параметров автоматически.
-
----
-
-## Архитектура и стек
-
-- **Next.js 16 (App Router) + TypeScript** — SPA-интерфейс и API-роуты в одном приложении;
-- **Хранилище** — JSON-база с атомарной записью (`data/panel/db.json`): ноль внешних зависимостей, человеческий бэкап, переносится копированием файла. Выбор осознанный: на VPS не нужны ни миграции, ни отдельный БД-процесс;
-- **Ключи** — системные `awg genkey`/`wg genkey`, если установлены; иначе встроенный Curve25519 (tweetnacl) — конфиги валидны в любом случае;
-- **Режим конфигуратора** — если утилиты AWG не найдены (панель запущена не на VPN-сервере), всё работает кроме управления интерфейсом: генерация конфигов, QR, vpn://, клиенты, Telegram, телеметрия;
-- **Телеметрия** — /proc/stat, /proc/net/dev, statfs; кольцевой буфер 120 точек;
-- **Telegram** — long polling на чистом fetch (без telegraf);
-- **UI** — Tailwind CSS 4, тёмная тема (slate-950 + emerald), Recharts, Lucide; адаптив: сайдбар на десктопе, drawer-меню и карточки на мобильных.
-
-```
-src/
-  app/
-    page.tsx                # SPA-панель (единый маршрут /)
-    api/                    # auth, clients, server, obf, routing,
-                            # telegram, admins, logs, backup, dashboard…
-  lib/awg/
-    store.ts                # JSON-база + аудит + настройки
-    keys.ts                 # Curve25519 (awg-tools | tweetnacl)
-    obfuscation.ts          # AWG 1.5/2.0/3.1 параметры + валидация
-    conf.ts                 # серверный/клиентский конфиг + vpn://
-    routing.ts              # geoip:ru, пресеты AllowedIPs
-    awgctl.ts               # awg-quick apply/syncconf/stats
-    telemetry.ts            # CPU/RAM/диск/сеть
-    telegram.ts             # бот (long polling)
-    auth.ts                 # JWT, RBAC, bootstrap root
-    bootstrap.ts            # идемпотентная инициализация
-  components/panel/         # экраны и UI-элементы
-install.sh                  # установщик VPS (Ubuntu/Debian)
-```
-
-## Разработка
-
-```bash
+# Установить зависимости
 bun install
-bun run dev       # http://localhost:3000
-bun run lint
+
+# Настроить окружение
+echo "NEXTAUTH_SECRET=your-secret-key" > .env
+echo "NEXTAUTH_URL=http://localhost:3080" >> .env
+echo "PORT=3080" >> .env
+
+# Собрать и запустить
+bun run build
+bun run start
 ```
 
-Для локальной разработки задайте в `.env.local`:
+Панель будет доступна на `http://localhost:3080`.
 
-```
-PANEL_DEMO=1          # имитация трафика, подсказка кредов
-ADMIN_USER=admin
-ADMIN_PASS=demo12345
-```
+При первом запуске панель автоматически создаст администратора:
+- Логин: `admin`
+- Пароль: генерируется автоматически (см. логи или файл `data/panel/initial-credentials.txt`)
 
-## Обновление
+### ⚠️ Известные проблемы
+
+На момент версии 1.0.0 имеется баг с рендерингом дашборда: после авторизации интерфейс показывает спиннер загрузки, хотя API (`/api/dashboard`, `/api/state`, `/api/clients`) возвращают корректные данные. Проблема в клиентском коде React — требуется исправление в компонентах дашборда.
+
+Серверная часть полностью функциональна: все API-эндпоинты работают, авторизация через JWT, управление клиентами и сервером доступно через REST API.
+
+---
+
+## 🇬 In English
+
+**MarkAmni WG Web Panel** is a modern web panel for managing AmneziaWG 3.1 and WireGuard VPN servers.
+
+### Features
+- 🚀 **Full AmneziaWG 3.1 support** — all obfuscation parameters (Jc, Jmin, Jmax, S1-S4, H1-H4, I1-I5, HeaderProtectionKey, etc.)
+- 👥 **Client management** — create, delete, enable/disable peers
+- 📱 **QR codes & configs** — instant generation of configs and QR codes for AmneziaVPN import
+- 🔒 **Security** — JWT-based authentication
+- 🎨 **Modern UI** — dark theme, responsive design, Tailwind CSS 4
+- 📊 **Statistics** — connection, CPU, RAM, disk monitoring
+- 🛠 **Easy installation** — single script for deployment
+
+### Quick Start
 
 ```bash
-cd /путь/к/amneziawg-panel && git pull
-sudo bash install.sh --yes     # конфиги и база в /opt/awg-panel/data/panel сохраняются
+# Clone repository
+git clone https://github.com/Maarkevich/MarkAmni-WG-Web-Panel.git
+cd MarkAmni-WG-Web-Panel
+
+# Install dependencies
+bun install
+
+# Configure environment
+echo "NEXTAUTH_SECRET=your-secret-key" > .env
+echo "NEXTAUTH_URL=http://localhost:3080" >> .env
+echo "PORT=3080" >> .env
+
+# Build and run
+bun run build
+bun run start
 ```
 
-## Лицензия
+Panel will be available at `http://localhost:3080`.
 
-MIT. AmneziaWG — торговая марка проекта Amnezia (amnezia.org); панель лишь генерирует совместимые конфигурации.
+On first launch, the panel automatically creates an admin user:
+- Username: `admin`
+- Password: auto-generated (see logs or `data/panel/initial-credentials.txt`)
+
+### ⚠️ Known Issues
+
+As of version 1.0.0, there is a dashboard rendering bug: after authentication, the UI shows a loading spinner even though APIs (`/api/dashboard`, `/api/state`, `/api/clients`) return valid data. The issue is in the React client code — dashboard components need fixing.
+
+The server-side is fully functional: all API endpoints work, JWT authentication is operational, client and server management is available via REST API.
+
+---
+
+## 📸 Screenshots
+
+### Dashboard (with known rendering issue)
+![Dashboard](screenshots/dashboard.jpg)
+
+*Note: The dashboard currently shows a loading spinner due to a client-side rendering bug. API responses are correct.*
+
+---
+
+## 🛠 Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript 5
+- **Styling**: Tailwind CSS 4 + shadcn/ui
+- **Auth**: JWT tokens (custom implementation)
+- **Runtime**: Bun / Node.js
+- **VPN**: AmneziaWG 3.1 / WireGuard
+- **Storage**: JSON file-based (no external DB required)
+
+---
+
+## 📝 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+**Made with ❤️ by Maarkevich**
+
+</content>

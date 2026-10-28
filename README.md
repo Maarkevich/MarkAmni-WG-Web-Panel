@@ -96,6 +96,57 @@ The script automatically:
 
 ---
 
+## 🔒 HTTPS — бесплатный домен + SSL-сертификат
+
+Для работы HTTPS нужен домен. Если его нет — получи бесплатный поддомен за 2 минуты.
+
+### Шаг 1 — Бесплатный домен (freedns.afraid.org)
+
+1. Зайди на **[freedns.afraid.org](https://freedns.afraid.org)**
+2. Зарегистрируйся (бесплатно)
+3. Перейди в **Subdomains → Add**
+4. Выбери любой тип: `A`, любой домен из списка (например `twilightparadox.com`)
+5. Придумай имя поддомена (например `mypanel`)
+6. В поле **Destination** укажи IP своего сервера
+7. Нажми **Save** — поддомен готов (`mypanel.twilightparadox.com`)
+
+### Шаг 2 — Nginx + SSL одной командой
+
+```bash
+DOMAIN=твой.домен.com SSL_EMAIL=твой@email.com bash <(curl -fsSL https://raw.githubusercontent.com/Maarkevich/MarkAmni-WG-Web-Panel/main/install.sh)
+```
+
+Или если панель уже установлена — отдельный скрипт настройки Nginx+SSL:
+
+```bash
+apt-get install -y nginx certbot python3-certbot-nginx
+
+# Создать конфиг и получить сертификат
+cat > /etc/nginx/sites-available/markamni-panel << 'EOF'
+server {
+    listen 80;
+    server_name ВАШ_ДОМЕН;
+    location /.well-known/acme-challenge/ { root /var/www/html; }
+    location / { return 301 https://$host$request_uri; }
+}
+EOF
+
+ln -sf /etc/nginx/sites-available/markamni-panel /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+systemctl restart nginx
+
+certbot --nginx -d ВАШ_ДОМЕН --non-interactive --agree-tos --email ВАШ@EMAIL.COM --redirect
+
+# Добавить proxy_pass в конфиг (заменить location /)
+# Затем: nginx -t && systemctl reload nginx
+```
+
+После настройки панель будет доступна по **`https://ВАШ_ДОМЕН`** с автоматически обновляемым сертификатом.
+
+> **Сертификат обновляется автоматически** через systemd-таймер certbot. Действует 90 дней, обновляется каждые ~60 дней.
+
+---
+
 ## 📸 Screenshots
 
 ### Dashboard

@@ -258,13 +258,82 @@ done
 # Сохранить firewall
 iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
 
+# ── Опционально: Nginx + SSL ──────────────────────────────────
+setup_nginx_ssl() {
+    local DOMAIN="$1"
+    local EMAIL="$2"
+
+    info "Установка Nginx и Certbot..."
+    apt-get install -y -qq nginx certbot python3-certbot-nginx
+
+    # Базовый конфиг для получения сертификата
+    cat > "/etc/nginx/sites-available/markamni-panel" << NGINXEOF
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    location /.well-known/acme-challenge/ { root /var/www/html; }
+    location / { return 301 https://\$host\$request_uri; }
+}
+NGINXEOF
+    ln -sf /etc/nginx/sites-available/markamni-panel /etc/nginx/sites-enabled/markamni-panel
+    rm -f /etc/nginx/sites-enabled/default
+    systemctl enable nginx -q && systemctl restart nginx
+
+    info "Получение SSL-сертификата Let's Encrypt..."
+    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "$EMAIL" --redirect
+
+    # Финальный конфиг с proxy_pass
+    cat > "/etc/nginx/sites-available/markamni-panel" << NGINXEOF
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    location /.well-known/acme-challenge/ { root /var/www/html; }
+    location / { return 301 https://\$host\$request_uri; }
+}
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN};
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header X-Content-Type-Options nosniff always;
+    client_max_body_size 64m;
+    location / {
+        proxy_pass         http://127.0.0.1:${PANEL_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade \$http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host \$host;
+        proxy_set_header   X-Real-IP \$remote_addr;
+        proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300s;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+NGINXEOF
+    nginx -t && systemctl reload nginx
+    success "HTTPS настроен: https://${DOMAIN}"
+}
+
+# Если передан домен и email — настраиваем SSL
+if [[ -n "${DOMAIN:-}" && -n "${SSL_EMAIL:-}" ]]; then
+    setup_nginx_ssl "$DOMAIN" "$SSL_EMAIL"
+    PANEL_URL="https://${DOMAIN}"
+else
+    PANEL_URL="http://${SERVER_IP}:${PANEL_PORT}"
+fi
+
 # ── Итоговый вывод ────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}${GREEN}┌─────────────────────────────────────────────────┐${RESET}"
 echo -e "${BOLD}${GREEN}│        MarkAmni WG Web Panel установлена!       │${RESET}"
 echo -e "${BOLD}${GREEN}└─────────────────────────────────────────────────┘${RESET}"
 echo ""
-echo -e "  ${BOLD}🌐 Адрес панели:${RESET}  ${CYAN}http://${SERVER_IP}:${PANEL_PORT}${RESET}"
+echo -e "  ${BOLD}🌐 Адрес панели:${RESET}  ${CYAN}${PANEL_URL:-http://${SERVER_IP}:${PANEL_PORT}}${RESET}"
 echo ""
 echo -e "  ${BOLD}🔑 Учётные данные:${RESET}"
 echo -e "     Логин:  ${YELLOW}admin${RESET}"

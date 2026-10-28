@@ -59,7 +59,19 @@ export function buildServerConf(db: Db): string {
 // ---------- Клиентский .conf ----------
 export function buildClientConf(db: Db, client: Client): string {
   const s = db.settings.server;
+  const domain = db.settings.domain;
   const allowed = resolveAllowedIps(client);
+  const endpoint = (domain?.useDomainAsEndpoint && domain?.name) ? domain.name : s.endpoint;
+
+  // Fake SNI: добавляем sni= в extra если включено и домен задан
+  const obfParams = { ...s.obf };
+  if (domain?.useFakeSni && domain?.name && s.obf.version !== '1.5') {
+    const existingExtra = String(obfParams.extra || '').trim();
+    // Убрать старый sni= если был
+    const cleanExtra = existingExtra.replace(/sni=\S+/g, '').trim();
+    obfParams.extra = (cleanExtra ? cleanExtra + '\n' : '') + `sni=${domain.name}`;
+  }
+
   return [
     '[Interface]',
     `# Name: ${client.name}`,
@@ -68,13 +80,13 @@ export function buildClientConf(db: Db, client: Client): string {
     `PrivateKey = ${client.privateKey}`,
     `MTU = ${obf.mtu(s.obf)}`,
     `# AmneziaWG ${s.obf.version}`,
-    obf.confLines(s.obf),
+    obf.confLines(obfParams),
     '',
     '[Peer]',
     `PublicKey = ${s.publicKey}`,
     `PresharedKey = ${client.presharedKey}`,
     `AllowedIPs = ${allowed}`,
-    `Endpoint = ${s.endpoint}:${s.port}`,
+    `Endpoint = ${endpoint}:${s.port}`,
     `PersistentKeepalive = ${s.keepalive}`,
     ''
   ].join('\n');
@@ -110,7 +122,7 @@ export function buildVpnLink(db: Db, client: Client): string {
     config: clientConf,
     dns1,
     dns2,
-    hostName: s.endpoint,
+    hostName: (db.settings.domain?.useDomainAsEndpoint && db.settings.domain?.name) ? db.settings.domain.name : s.endpoint,
     mtu: String(obf.mtu(o)),
     persistent_keep_alive: String(s.keepalive),
     port: String(s.port),
@@ -153,7 +165,7 @@ export function buildVpnLink(db: Db, client: Client): string {
     description: `AWG ${o.version}: ${client.name}`,
     dns1,
     dns2,
-    hostName: s.endpoint
+    hostName: (db.settings.domain?.useDomainAsEndpoint && db.settings.domain?.name) ? db.settings.domain.name : s.endpoint
   };
   return 'vpn://' + encodeVpnPayload(JSON.stringify(payload));
 }

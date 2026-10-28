@@ -91,7 +91,7 @@ function defaults(): Db {
         bound: [], // { id, name }
         notify: { created: true, expired: true, limit: true, disabled: true }
       },
-      domain: { name: '', email: '', sslEnabled: false, nginxEnabled: false }
+      domain: { name: '', email: '', sslEnabled: false, nginxEnabled: false, useDomainAsEndpoint: false, useFakeSni: false }
     },
     admins: [],
     clients: [],
@@ -121,7 +121,7 @@ export function load(): Db {
   db.settings.server = { ...d.settings.server, ...db.settings.server };
   db.settings.server.obf = { ...d.settings.server.obf, ...db.settings.server.obf };
   db.settings.telegram = { ...d.settings.telegram, ...db.settings.telegram };
-  db.settings.domain = { name: '', email: '', sslEnabled: false, nginxEnabled: false, ...db.settings.domain };
+  db.settings.domain = { name: '', email: '', sslEnabled: false, nginxEnabled: false, useDomainAsEndpoint: false, useFakeSni: false, ...db.settings.domain };
   db.admins = Array.isArray(db.admins) ? db.admins : [];
   db.clients = Array.isArray(db.clients) ? db.clients : [];
   db.audit = Array.isArray(db.audit) ? db.audit : [];

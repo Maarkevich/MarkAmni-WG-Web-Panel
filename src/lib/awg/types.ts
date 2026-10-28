@@ -66,6 +66,8 @@ export interface DomainSettings {
   nginxEnabled: boolean;
   lastSetup?: string;
   lastError?: string;
+  useDomainAsEndpoint?: boolean;
+  useFakeSni?: boolean;
 }
 
 export interface Settings {

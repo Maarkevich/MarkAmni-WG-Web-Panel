@@ -12,6 +12,8 @@ interface DomainSettings {
   nginxEnabled?: boolean;
   lastSetup?: string;
   lastError?: string;
+  useDomainAsEndpoint?: boolean;
+  useFakeSni?: boolean;
 }
 
 export default function DomainView({ toast }: { toast: (msg: string, type?: 'success' | 'error' | 'info') => void }) {
@@ -20,6 +22,9 @@ export default function DomainView({ toast }: { toast: (msg: string, type?: 'suc
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [useDomainEndpoint, setUseDomainEndpoint] = useState(false);
+  const [useFakeSni, setUseFakeSni] = useState(false);
+  const [savingOptions, setSavingOptions] = useState(false);
 
   useEffect(() => {
     api<{ domain: DomainSettings }>('/api/domain')
@@ -27,9 +32,28 @@ export default function DomainView({ toast }: { toast: (msg: string, type?: 'suc
         setDomain(r.domain);
         if (r.domain.name) setName(r.domain.name);
         if (r.domain.email) setEmail(r.domain.email);
+        if (r.domain.useDomainAsEndpoint) setUseDomainEndpoint(r.domain.useDomainAsEndpoint);
+        if (r.domain.useFakeSni) setUseFakeSni(r.domain.useFakeSni);
       })
       .catch(() => {});
   }, []);
+
+  const saveOptions = async (endpointVal: boolean, sniVal: boolean) => {
+    setSavingOptions(true);
+    try {
+      const r = await api<{ ok: boolean; domain: DomainSettings }>('/api/domain', {
+        json: { action: 'update-options', useDomainAsEndpoint: endpointVal, useFakeSni: sniVal }
+      });
+      if (r.ok) {
+        setDomain(r.domain);
+        toast('Настройки маскировки сохранены', 'success');
+      }
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setSavingOptions(false);
+    }
+  };
 
   const handleSetup = async () => {
     if (!name.trim()) { toast('Введите домен', 'error'); return; }
@@ -83,6 +107,60 @@ export default function DomainView({ toast }: { toast: (msg: string, type?: 'suc
             </a>
           </div>
         </div>
+      )}
+
+      {/* Опции маскировки через домен */}
+      {isConfigured && (
+        <Card>
+          <CardHead title="Маскировка через домен" icon={<Shield className="w-4 h-4" />}
+            sub="Опции применяются к новым конфигам клиентов" />
+          <div className="p-4 space-y-4">
+
+            {/* Опция 1: Endpoint как домен */}
+            <div className="flex items-start justify-between gap-4 p-3 rounded-xl bg-slate-950/50 border border-slate-800">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-200">Домен в Endpoint клиентов</p>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Вместо IP-адреса в конфиге клиента будет указан домен.<br />
+                  <span className="font-mono text-slate-400">Endpoint = {domain.name}:{'{port}'}</span><br />
+                  При блокировке IP достаточно сменить DNS-запись — клиенты переподключатся без пересоздания конфигов.
+                </p>
+              </div>
+              <button
+                onClick={() => { const v = !useDomainEndpoint; setUseDomainEndpoint(v); void saveOptions(v, useFakeSni); }}
+                disabled={savingOptions}
+                className={`shrink-0 w-11 h-6 rounded-full transition-colors ${useDomainEndpoint ? 'bg-emerald-500' : 'bg-slate-700'}`}
+              >
+                <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform mx-0.5 ${useDomainEndpoint ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            {/* Опция 3: Fake SNI */}
+            <div className="flex items-start justify-between gap-4 p-3 rounded-xl bg-slate-950/50 border border-slate-800">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-200">Fake SNI (имитация HTTPS)</p>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Добавляет SNI-заголовок домена в конфиг — AWG-трафик выглядит как HTTPS к <span className="font-mono text-slate-400">{domain.name}</span>.<br />
+                  DPI-системы видят обращение к легитимному домену, а не VPN-трафик.<br />
+                  <span className="text-amber-400/80">Только для AWG 2.0 / 3.1.</span>
+                </p>
+              </div>
+              <button
+                onClick={() => { const v = !useFakeSni; setUseFakeSni(v); void saveOptions(useDomainEndpoint, v); }}
+                disabled={savingOptions}
+                className={`shrink-0 w-11 h-6 rounded-full transition-colors ${useFakeSni ? 'bg-emerald-500' : 'bg-slate-700'}`}
+              >
+                <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform mx-0.5 ${useFakeSni ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            {savingOptions && <p className="text-xs text-slate-500 text-center">Сохраняем…</p>}
+
+            <div className="text-xs text-slate-600 leading-relaxed px-1">
+              ⚠️ Опции влияют только на <strong className="text-slate-500">новые</strong> конфиги. Уже скачанные конфиги клиентов нужно пересоздать (кнопка QR / Скачать в разделе Клиенты).
+            </div>
+          </div>
+        </Card>
       )}
 
       {domain.lastError && (

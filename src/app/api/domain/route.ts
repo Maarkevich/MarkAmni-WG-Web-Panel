@@ -23,11 +23,24 @@ export async function POST(req: NextRequest) {
   const g = guard(req, 'server');
   if (isGuardFail(g)) return g;
 
-  const body = await req.json() as { name?: string; email?: string; action?: string };
+  const body = await req.json() as { name?: string; email?: string; action?: string; useDomainAsEndpoint?: boolean; useFakeSni?: boolean };
   const db = store.get();
 
   if (!db.settings.domain) {
     db.settings.domain = { name: '', email: '', sslEnabled: false, nginxEnabled: false };
+  }
+
+  // action=update-options — обновить только опции маскировки (без переустановки SSL)
+  if (body.action === 'update-options') {
+    if (typeof body.useDomainAsEndpoint === 'boolean') {
+      db.settings.domain.useDomainAsEndpoint = body.useDomainAsEndpoint;
+    }
+    if (typeof body.useFakeSni === 'boolean') {
+      db.settings.domain.useFakeSni = body.useFakeSni;
+    }
+    store.save();
+    store.audit('domain.options', 'admin', `endpoint=${db.settings.domain.useDomainAsEndpoint} sni=${db.settings.domain.useFakeSni}`);
+    return json({ ok: true, domain: db.settings.domain });
   }
 
   // action=remove — удалить домен и Nginx конфиг

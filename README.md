@@ -26,60 +26,39 @@
 - 📋 **Журнал аудита** — история всех действий в панели
 - 🛠 **Простая установка** — один скрипт для развёртывания
 
-### Быстрый старт
+### Быстрый старт — одна команда
 
 ```bash
-# 1. Клонировать репозиторий
-git clone https://github.com/Maarkevich/MarkAmni-WG-Web-Panel.git
-cd MarkAmni-WG-Web-Panel
-
-# 2. Установить зависимости (Bun)
-bun install
-
-# 3. Настроить окружение
-cat > .env << EOF
-NEXTAUTH_SECRET=замени-на-случайную-строку
-NEXTAUTH_URL=http://ВАШ_IP:3080
-PORT=3080
-EOF
-
-# 4. Собрать и запустить
-bun run build
-bun run start
+bash <(curl -fsSL https://raw.githubusercontent.com/Maarkevich/MarkAmni-WG-Web-Panel/main/install.sh)
 ```
 
-Панель будет доступна на `http://ВАШ_IP:3080`.
+Скрипт автоматически:
+1. Установит системные зависимости (`curl`, `git`, `iptables` и др.)
+2. Установит **AmneziaWG 3.1** из официального PPA
+3. Установит **Node.js 20** и **Bun**
+4. Клонирует репозиторий и соберёт панель
+5. Создаст и поднимет интерфейс `awg0` с параметрами обфускации AWG 3.1
+6. Настроит **systemd**-сервис с автозапуском
+7. Выведет в терминал ссылку, логин и пароль
 
-**При первом запуске** панель автоматически создаёт администратора:
-- Логин: `admin`
-- Пароль: генерируется автоматически (см. логи или файл `.next/standalone/data/panel/initial-credentials.txt`)
-
-### Установка через systemd (production)
-
-```bash
-cat > /etc/systemd/system/markamni-panel.service << EOF
-[Unit]
-Description=MarkAmni WG Web Panel
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/MarkAmni-WG-Web-Panel
-Environment=NODE_ENV=production
-Environment=PORT=3080
-Environment=NEXTAUTH_URL=http://ВАШ_IP:3080
-Environment=NEXTAUTH_SECRET=замени-на-случайную-строку
-ExecStart=/root/.bun/bin/bun .next/standalone/server.js
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable --now markamni-panel.service
+**Пример вывода после установки:**
 ```
+┌─────────────────────────────────────────────────┐
+│        MarkAmni WG Web Panel установлена!       │
+└─────────────────────────────────────────────────┘
+
+  🌐 Адрес панели:  http://YOUR_IP:3080
+
+  🔑 Учётные данные:
+     Логин:  admin
+     Пароль: xXxXxXxXxXxX
+
+  ⚠️  Важно: Сохраните логин и пароль!
+     После первого входа смените пароль:
+     Администраторы → Профиль → Сменить пароль
+```
+
+**Требования:** Ubuntu 22.04 / 24.04, amd64, root-доступ
 
 ---
 
@@ -98,60 +77,22 @@ systemctl enable --now markamni-panel.service
 - 📋 **Audit log** — full history of panel actions
 - 🛠 **Easy setup** — single script deployment
 
-### Quick Start
+### Quick Start — one command
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/Maarkevich/MarkAmni-WG-Web-Panel.git
-cd MarkAmni-WG-Web-Panel
-
-# 2. Install dependencies (Bun)
-bun install
-
-# 3. Configure environment
-cat > .env << EOF
-NEXTAUTH_SECRET=replace-with-random-string
-NEXTAUTH_URL=http://YOUR_IP:3080
-PORT=3080
-EOF
-
-# 4. Build and run
-bun run build
-bun run start
+bash <(curl -fsSL https://raw.githubusercontent.com/Maarkevich/MarkAmni-WG-Web-Panel/main/install.sh)
 ```
 
-Panel will be available at `http://YOUR_IP:3080`.
+The script automatically:
+1. Installs system dependencies (`curl`, `git`, `iptables`, etc.)
+2. Installs **AmneziaWG 3.1** from the official PPA
+3. Installs **Node.js 20** and **Bun**
+4. Clones the repository and builds the panel
+5. Creates and brings up the `awg0` interface with AWG 3.1 obfuscation parameters
+6. Sets up a **systemd** service with autostart
+7. Prints the panel URL, login and password to the terminal
 
-**On first launch**, the panel automatically creates an admin user:
-- Username: `admin`
-- Password: auto-generated (check logs or `.next/standalone/data/panel/initial-credentials.txt`)
-
-### Production setup with systemd
-
-```bash
-cat > /etc/systemd/system/markamni-panel.service << EOF
-[Unit]
-Description=MarkAmni WG Web Panel
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/MarkAmni-WG-Web-Panel
-Environment=NODE_ENV=production
-Environment=PORT=3080
-Environment=NEXTAUTH_URL=http://YOUR_IP:3080
-Environment=NEXTAUTH_SECRET=replace-with-random-string
-ExecStart=/root/.bun/bin/bun .next/standalone/server.js
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable --now markamni-panel.service
-```
+**Requirements:** Ubuntu 22.04 / 24.04, amd64, root access
 
 ---
 

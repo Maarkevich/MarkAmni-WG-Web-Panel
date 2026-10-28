@@ -13,7 +13,13 @@ import type { Client } from './types';
 
 export const AWG_CONF_DIR = '/etc/amnezia/amneziawg';
 
-export const runtime = {
+// runtime — в globalThis: Turbopack дублирует модули между роутами,
+// без этого у каждого маршрута свой «статус интерфейса» и UI показывает ложное состояние.
+const g = globalThis as unknown as { __awgRuntime?: typeof runtime };
+export const runtime: {
+  demo: boolean; awgInstalled: boolean; ifaceUp: boolean;
+  toolVersion: string; moduleVersion: string; detectedIp: string; lastApplyMessage: string;
+} = g.__awgRuntime ?? {
   demo: true,          // true, если утилиты AWG не найдены (режим конфигуратора)
   awgInstalled: false,
   ifaceUp: false,
@@ -22,6 +28,7 @@ export const runtime = {
   detectedIp: '',
   lastApplyMessage: ''
 };
+g.__awgRuntime = runtime;
 
 function sh(bin: string, args: string[], timeout = 15000): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -118,6 +125,7 @@ function fmtAgo(sec: number): string {
 }
 
 // Демо-режим (нет утилит AWG): имитация живого трафика
+const gDemo = globalThis as unknown as { __awgDemoTotals?: { rx: number; tx: number } };
 function demoSimulate(db: { clients: Client[] }) {
   const clients = db.clients.filter((c) => c.enabled);
   if (!clients.length) return;
@@ -129,6 +137,13 @@ function demoSimulate(db: { clients: Client[] }) {
     c.usage.online = true;
     c.usage.lastHandshake = `${Math.floor(Math.random() * 40) + 2} сек. назад`;
   }
+  // суточный счётчик трафика (дельта по суммарным значениям клиентов)
+  const rx = clients.reduce((s, c) => s + (c.usage?.rx || 0), 0);
+  const tx = clients.reduce((s, c) => s + (c.usage?.tx || 0), 0);
+  const prev = gDemo.__awgDemoTotals || { rx, tx };
+  const dRx = Math.max(0, rx - prev.rx), dTx = Math.max(0, tx - prev.tx);
+  gDemo.__awgDemoTotals = { rx, tx };
+  if (dRx > 0 || dTx > 0) store.addTraffic(dRx, dTx);
   store.save();
 }
 

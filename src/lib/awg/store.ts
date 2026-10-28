@@ -15,6 +15,11 @@ const SECRET_FILE = path.join(DATA_DIR, 'jwt.secret');
 let db: Db | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Next.js (Turbopack) может дублировать модули между роут-бандлами —
+// singleton-состояние базы храним в globalThis, чтобы все экземпляры
+// модуля видели одну и ту же базу (иначе записи затираются).
+const g = globalThis as unknown as { __awgDb?: Db; __awgSaveTimer?: ReturnType<typeof setTimeout> | null };
+
 function ensureDir() {
   fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
 }
@@ -119,10 +124,12 @@ export function load(): Db {
   db.clients = Array.isArray(db.clients) ? db.clients : [];
   db.audit = Array.isArray(db.audit) ? db.audit : [];
   db.traffic = db.traffic || {};
+  g.__awgDb = db;
   return db;
 }
 
 export function get(): Db {
+  if (db === null && g.__awgDb) db = g.__awgDb; // подхватить из globalThis (другой экземпляр модуля)
   if (!db) load();
   return db!;
 }
@@ -136,11 +143,14 @@ export function persistNow() {
 
 // Отложенная запись (не чаще раза в 400мс) — чтобы не убить диск VPS
 export function save() {
-  if (saveTimer) return;
-  saveTimer = setTimeout(() => {
+  if (saveTimer || g.__awgSaveTimer) return;
+  const timer = setTimeout(() => {
     saveTimer = null;
+    g.__awgSaveTimer = null;
     try { persistNow(); } catch (e) { console.error('[store] Ошибка сохранения:', (e as Error).message); }
   }, 400);
+  saveTimer = timer;
+  g.__awgSaveTimer = timer;
 }
 
 export function jwtSecret(): string {

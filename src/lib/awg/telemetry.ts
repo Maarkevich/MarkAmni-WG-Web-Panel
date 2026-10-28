@@ -4,13 +4,25 @@
 import os from 'os';
 import fs from 'fs';
 import type { TelemetrySnapshot } from './types';
-import { get } from './store';
+import { get, addTraffic } from './store';
 
 const SERIES_MAX = 180; // точек истории (при шаге 2с — 6 минут)
-const series: { t: number; cpu: number; rx: number; tx: number }[] = [];
-let lastCpu: { idle: number; total: number } | null = null;
-let lastNet: { totalRx: number; totalTx: number; awgRx: number; awgTx: number } | null = null;
-let cache: TelemetrySnapshot | null = null;
+// Состояние — в globalThis: Turbopack дублирует модули между роутами,
+// без этого у /api/dashboard своя пустая серия и график никогда не заполняется.
+const g = globalThis as unknown as {
+  __awgTelemetry?: {
+    series: { t: number; cpu: number; rx: number; tx: number }[];
+    lastCpu: { idle: number; total: number } | null;
+    lastNet: { totalRx: number; totalTx: number; awgRx: number; awgTx: number } | null;
+    cache: TelemetrySnapshot | null;
+  };
+};
+function getG() {
+  if (!g.__awgTelemetry) {
+    g.__awgTelemetry = { series: [], lastCpu: null, lastNet: null, cache: null };
+  }
+  return g.__awgTelemetry;
+}
 
 function cpuTimes() {
   const cpus = os.cpus();
@@ -55,24 +67,28 @@ function diskUsage() {
 }
 
 export function sample(): TelemetrySnapshot {
+  const series = getG().series;
   const cpuNow = cpuTimes();
   let cpuPct = 0;
-  if (lastCpu) {
-    const dTotal = cpuNow.total - lastCpu.total;
-    const dIdle = cpuNow.idle - lastCpu.idle;
+  if (getG().lastCpu) {
+    const dTotal = cpuNow.total - getG().lastCpu!.total;
+    const dIdle = cpuNow.idle - getG().lastCpu!.idle;
     cpuPct = dTotal > 0 ? Math.min(100, Math.round((1 - dIdle / dTotal) * 100)) : 0;
   }
-  lastCpu = cpuNow;
+  getG().lastCpu = cpuNow;
 
   const netNow = netCounters();
   let rxSec = 0, txSec = 0, awgRxSec = 0, awgTxSec = 0;
-  if (lastNet) {
-    rxSec = Math.max(0, netNow.totalRx - lastNet.totalRx) / 2;
-    txSec = Math.max(0, netNow.totalTx - lastNet.totalTx) / 2;
-    awgRxSec = Math.max(0, netNow.awgRx - lastNet.awgRx) / 2;
-    awgTxSec = Math.max(0, netNow.awgTx - lastNet.awgTx) / 2;
+  if (getG().lastNet) {
+    rxSec = Math.max(0, netNow.totalRx - getG().lastNet.totalRx) / 2;
+    txSec = Math.max(0, netNow.totalTx - getG().lastNet.totalTx) / 2;
+    awgRxSec = Math.max(0, netNow.awgRx - getG().lastNet.awgRx) / 2;
+    awgTxSec = Math.max(0, netNow.awgTx - getG().lastNet.awgTx) / 2;
   }
-  lastNet = netNow;
+  getG().lastNet = netNow;
+
+  // Суточный счётчик трафика через туннель (шаг сэмпла — 2 с)
+  if (awgRxSec > 0 || awgTxSec > 0) addTraffic(Math.round(awgRxSec * 2), Math.round(awgTxSec * 2));
 
   const memTotal = os.totalmem();
   const memFree = os.freemem();
@@ -87,7 +103,7 @@ export function sample(): TelemetrySnapshot {
   series.push(point);
   if (series.length > SERIES_MAX) series.shift();
 
-  cache = {
+  const cache: TelemetrySnapshot = {
     cpu: cpuPct,
     cpuCores: os.cpus().length,
     cpuModel: os.cpus()[0]?.model?.split('@')[0]?.trim() || '',
@@ -106,6 +122,7 @@ export function sample(): TelemetrySnapshot {
     },
     t: point.t
   };
+  getG().cache = cache;
   return cache;
 }
 
@@ -117,5 +134,6 @@ export function start(intervalMs = 2000) {
 }
 
 export function snapshot(): TelemetrySnapshot {
-  return { ...(cache || sample()), series: series.slice(-120) };
+  const st = getG();
+  return { ...(st.cache || sample()), series: st.series.slice(-120) };
 }

@@ -5,123 +5,194 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)](https://www.typescriptlang.org/)
+[![Bun](https://img.shields.io/badge/Bun-1.4-f9f1e1.svg)](https://bun.sh/)
 
-A powerful, self-hosted web interface for managing AmneziaWG and WireGuard VPN servers. Built with Next.js 16, Tailwind CSS 4.
+Современная самохостируемая веб-панель для управления VPN-серверами AmneziaWG 3.1 и WireGuard. Построена на Next.js 16, Tailwind CSS 4, TypeScript.
 
 ---
 
 ## 🇷🇺 На русском
 
-**MarkAmni WG Web Panel** — это современная веб-панель для управления серверами AmneziaWG 3.1 и WireGuard.
-
 ### Возможности
-- 🚀 **Полная поддержка AmneziaWG 3.1** — все параметры обфускации (Jc, Jmin, Jmax, S1-S4, H1-H4, I1-I5, HeaderProtectionKey и др.)
-- 👥 **Управление клиентами** — создание, удаление, включение/отключение пиров
-- 📱 **QR-коды и конфиги** — мгновенная генерация конфигов и QR-кодов для импорта в AmneziaVPN
-- 🔒 **Безопасность** — авторизация через JWT-токены
-- 🎨 **Современный UI** — тёмная тема, адаптивный дизайн, Tailwind CSS 4
-- 📊 **Статистика** — мониторинг подключений, CPU, RAM, диска
+
+- 🚀 **Полная поддержка AmneziaWG 3.1** — все параметры обфускации: `Jc`, `Jmin`, `Jmax`, `S1-S4`, `H1-H4`, `I1-I5`, `HeaderProtectionKey`, `ContentPaddingAddition`, `RekeyAfterTime` и др.
+- 👥 **Управление клиентами** — создание, удаление, включение/отключение пиров, лимиты трафика и дата истечения
+- 📱 **QR-коды и конфиги** — мгновенная генерация `.conf`-файлов и QR-кодов для импорта в AmneziaVPN
+- 🔒 **Безопасность** — авторизация через JWT-токены, ролевая модель (root / admin)
+- 🎨 **Современный UI** — тёмная тема, адаптивный дизайн, Tailwind CSS 4 + shadcn/ui
+- 📊 **Дашборд и телеметрия** — CPU, RAM, диск, аптайм, график трафика в реальном времени
+- 🛣️ **Маршрутизация** — полный туннель, только Россия, без локальной сети, свой список
+- 🤖 **Telegram-бот** — уведомления и управление через Telegram
+- 📋 **Журнал аудита** — история всех действий в панели
 - 🛠 **Простая установка** — один скрипт для развёртывания
 
 ### Быстрый старт
 
 ```bash
-# Клонировать репозиторий
+# 1. Клонировать репозиторий
 git clone https://github.com/Maarkevich/MarkAmni-WG-Web-Panel.git
 cd MarkAmni-WG-Web-Panel
 
-# Установить зависимости
+# 2. Установить зависимости (Bun)
 bun install
 
-# Настроить окружение
-echo "NEXTAUTH_SECRET=your-secret-key" > .env
-echo "NEXTAUTH_URL=http://localhost:3080" >> .env
-echo "PORT=3080" >> .env
+# 3. Настроить окружение
+cat > .env << EOF
+NEXTAUTH_SECRET=замени-на-случайную-строку
+NEXTAUTH_URL=http://ВАШ_IP:3080
+PORT=3080
+EOF
 
-# Собрать и запустить
+# 4. Собрать и запустить
 bun run build
 bun run start
 ```
 
-Панель будет доступна на `http://localhost:3080`.
+Панель будет доступна на `http://ВАШ_IP:3080`.
 
-При первом запуске панель автоматически создаст администратора:
+**При первом запуске** панель автоматически создаёт администратора:
 - Логин: `admin`
-- Пароль: генерируется автоматически (см. логи или файл `data/panel/initial-credentials.txt`)
+- Пароль: генерируется автоматически (см. логи или файл `.next/standalone/data/panel/initial-credentials.txt`)
 
-### ⚠️ Известные проблемы
+### Установка через systemd (production)
 
-На момент версии 1.0.0 имеется баг с рендерингом дашборда: после авторизации интерфейс показывает спиннер загрузки, хотя API (`/api/dashboard`, `/api/state`, `/api/clients`) возвращают корректные данные. Проблема в клиентском коде React — требуется исправление в компонентах дашборда.
+```bash
+cat > /etc/systemd/system/markamni-panel.service << EOF
+[Unit]
+Description=MarkAmni WG Web Panel
+After=network.target
 
-Серверная часть полностью функциональна: все API-эндпоинты работают, авторизация через JWT, управление клиентами и сервером доступно через REST API.
+[Service]
+Type=simple
+WorkingDirectory=/opt/MarkAmni-WG-Web-Panel
+Environment=NODE_ENV=production
+Environment=PORT=3080
+Environment=NEXTAUTH_URL=http://ВАШ_IP:3080
+Environment=NEXTAUTH_SECRET=замени-на-случайную-строку
+ExecStart=/root/.bun/bin/bun .next/standalone/server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now markamni-panel.service
+```
 
 ---
 
-## 🇬 In English
-
-**MarkAmni WG Web Panel** is a modern web panel for managing AmneziaWG 3.1 and WireGuard VPN servers.
+## 🇬🇧 In English
 
 ### Features
-- 🚀 **Full AmneziaWG 3.1 support** — all obfuscation parameters (Jc, Jmin, Jmax, S1-S4, H1-H4, I1-I5, HeaderProtectionKey, etc.)
-- 👥 **Client management** — create, delete, enable/disable peers
-- 📱 **QR codes & configs** — instant generation of configs and QR codes for AmneziaVPN import
-- 🔒 **Security** — JWT-based authentication
-- 🎨 **Modern UI** — dark theme, responsive design, Tailwind CSS 4
-- 📊 **Statistics** — connection, CPU, RAM, disk monitoring
-- 🛠 **Easy installation** — single script for deployment
+
+- 🚀 **Full AmneziaWG 3.1 support** — all obfuscation params: `Jc`, `Jmin`, `Jmax`, `S1-S4`, `H1-H4`, `I1-I5`, `HeaderProtectionKey`, `ContentPaddingAddition`, `RekeyAfterTime`, etc.
+- 👥 **Client management** — create, delete, enable/disable peers, traffic limits and expiry dates
+- 📱 **QR codes & configs** — instant `.conf` file and QR code generation for AmneziaVPN import
+- 🔒 **Security** — JWT-based authentication, role model (root / admin)
+- 🎨 **Modern UI** — dark theme, responsive design, Tailwind CSS 4 + shadcn/ui
+- 📊 **Dashboard & telemetry** — CPU, RAM, disk, uptime, real-time traffic chart
+- 🛣️ **Routing** — full tunnel, Russia-only, no-local, custom IP list
+- 🤖 **Telegram bot** — notifications and management via Telegram
+- 📋 **Audit log** — full history of panel actions
+- 🛠 **Easy setup** — single script deployment
 
 ### Quick Start
 
 ```bash
-# Clone repository
+# 1. Clone repository
 git clone https://github.com/Maarkevich/MarkAmni-WG-Web-Panel.git
 cd MarkAmni-WG-Web-Panel
 
-# Install dependencies
+# 2. Install dependencies (Bun)
 bun install
 
-# Configure environment
-echo "NEXTAUTH_SECRET=your-secret-key" > .env
-echo "NEXTAUTH_URL=http://localhost:3080" >> .env
-echo "PORT=3080" >> .env
+# 3. Configure environment
+cat > .env << EOF
+NEXTAUTH_SECRET=replace-with-random-string
+NEXTAUTH_URL=http://YOUR_IP:3080
+PORT=3080
+EOF
 
-# Build and run
+# 4. Build and run
 bun run build
 bun run start
 ```
 
-Panel will be available at `http://localhost:3080`.
+Panel will be available at `http://YOUR_IP:3080`.
 
-On first launch, the panel automatically creates an admin user:
+**On first launch**, the panel automatically creates an admin user:
 - Username: `admin`
-- Password: auto-generated (see logs or `data/panel/initial-credentials.txt`)
+- Password: auto-generated (check logs or `.next/standalone/data/panel/initial-credentials.txt`)
 
-### ⚠️ Known Issues
+### Production setup with systemd
 
-As of version 1.0.0, there is a dashboard rendering bug: after authentication, the UI shows a loading spinner even though APIs (`/api/dashboard`, `/api/state`, `/api/clients`) return valid data. The issue is in the React client code — dashboard components need fixing.
+```bash
+cat > /etc/systemd/system/markamni-panel.service << EOF
+[Unit]
+Description=MarkAmni WG Web Panel
+After=network.target
 
-The server-side is fully functional: all API endpoints work, JWT authentication is operational, client and server management is available via REST API.
+[Service]
+Type=simple
+WorkingDirectory=/opt/MarkAmni-WG-Web-Panel
+Environment=NODE_ENV=production
+Environment=PORT=3080
+Environment=NEXTAUTH_URL=http://YOUR_IP:3080
+Environment=NEXTAUTH_SECRET=replace-with-random-string
+ExecStart=/root/.bun/bin/bun .next/standalone/server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now markamni-panel.service
+```
 
 ---
 
 ## 📸 Screenshots
 
-### Dashboard (with known rendering issue)
+### Dashboard
 ![Dashboard](screenshots/dashboard.jpg)
-
-*Note: The dashboard currently shows a loading spinner due to a client-side rendering bug. API responses are correct.*
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript 5
-- **Styling**: Tailwind CSS 4 + shadcn/ui
-- **Auth**: JWT tokens (custom implementation)
-- **Runtime**: Bun / Node.js
-- **VPN**: AmneziaWG 3.1 / WireGuard
-- **Storage**: JSON file-based (no external DB required)
+| Component | Technology |
+|-----------|-----------|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript 5 |
+| Styling | Tailwind CSS 4 + shadcn/ui |
+| Auth | JWT tokens (custom) |
+| Runtime | Bun 1.4 / Node.js 20 |
+| VPN | AmneziaWG 3.1 / WireGuard |
+| Storage | JSON file-based (no external DB required) |
+| Charts | Recharts |
+| Forms | React Hook Form + Zod |
+
+---
+
+## 🔑 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/login` | Login |
+| POST | `/api/auth/logout` | Logout |
+| GET | `/api/me` | Current user |
+| GET | `/api/state` | Server state |
+| GET | `/api/dashboard` | Dashboard telemetry |
+| GET | `/api/clients` | List clients |
+| POST | `/api/clients` | Create client |
+| DELETE | `/api/clients/:id` | Delete client |
+| GET | `/api/clients/:id/export` | Export client config + QR |
+| POST | `/api/server/apply` | Apply server config |
+| GET | `/api/logs` | Audit log |
 
 ---
 
@@ -137,6 +208,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-**Made with ❤️ by Maarkevich**
-
-</content>
+**Made with ❤️ by [Maarkevich](https://github.com/Maarkevich)**

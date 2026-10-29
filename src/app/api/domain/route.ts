@@ -116,8 +116,14 @@ export async function POST(req: NextRequest) {
       execSync('apt-get install -y -qq certbot python3-certbot-nginx', { timeout: 120000 });
     }
 
-    // 4. Получить сертификат
-    execSync(`certbot --nginx -d ${domainName} --non-interactive --agree-tos --email ${email} --redirect 2>&1`, { timeout: 120000 });
+    // 4. Получить сертификат (пропускаем если уже есть)
+    const certPath = `/etc/letsencrypt/live/${domainName}/fullchain.pem`;
+    if (!fs.existsSync(certPath)) {
+      execSync(`certbot --nginx -d ${domainName} --non-interactive --agree-tos --email ${email} --redirect 2>&1`, { timeout: 120000 });
+    } else {
+      // Сертификат уже есть — только обновим конфиг nginx если нужно
+      execSync('systemctl reload nginx 2>/dev/null || true', { timeout: 10000 });
+    } (feat: domain masking, vpn:// link fix (amnezia-awg2 + protocol_version), auto-detect wanIface, skip certbot if cert exists)
 
     // 5. Записать финальный конфиг с proxy_pass
     const nginxFull = `# Managed by MarkAmni WG Web Panel

@@ -63,33 +63,29 @@ export function buildClientConf(db: Db, client: Client): string {
   const allowed = resolveAllowedIps(client);
   const endpoint = (domain?.useDomainAsEndpoint && domain?.name) ? domain.name : s.endpoint;
 
-  // Fake SNI: добавляем sni= в extra если включено и домен задан
-  const obfParams = { ...s.obf };
-  if (domain?.useFakeSni && domain?.name && s.obf.version !== '1.5') {
-    const existingExtra = String(obfParams.extra || '').trim();
-    // Убрать старый sni= если был
-    const cleanExtra = existingExtra.replace(/sni=\S+/g, '').trim();
-    obfParams.extra = (cleanExtra ? cleanExtra + '\n' : '') + `sni=${domain.name}`;
-  }
+  // Параметры обфускации (fake SNI через extra не используем — AmneziaVPN не поддерживает произвольные поля)
+  const obfParams = { ...s.obf, extra: String(s.obf.extra || "").replace(/sni=\S+/g, "").trim() };
+
+  const allObfLines = obf.confLines(obfParams).split("\n"); (feat: domain masking, vpn:// link fix (amnezia-awg2 + protocol_version), auto-detect wanIface, skip certbot if cert exists)
 
   return [
-    '[Interface]',
+    "[Interface]",
     `# Name: ${client.name}`,
-    `Address = ${String(client.ip).includes('/') ? client.ip : client.ip + '/32'}`,
+    `Address = ${String(client.ip).includes("/") ? client.ip : client.ip + "/32"}`,
     `DNS = ${s.dns}`,
     `PrivateKey = ${client.privateKey}`,
     `MTU = ${obf.mtu(s.obf)}`,
     `# AmneziaWG ${s.obf.version}`,
-    obf.confLines(obfParams),
-    '',
-    '[Peer]',
+    ...allObfLines.filter((line) => line.trim()),
+    "",
+    "[Peer]", (feat: domain masking, vpn:// link fix (amnezia-awg2 + protocol_version), auto-detect wanIface, skip certbot if cert exists)
     `PublicKey = ${s.publicKey}`,
     `PresharedKey = ${client.presharedKey}`,
     `AllowedIPs = ${allowed}`,
     `Endpoint = ${endpoint}:${s.port}`,
     `PersistentKeepalive = ${s.keepalive}`,
-    ''
-  ].join('\n');
+    ""
+  ].join("\n");
 }
 
 // ---------- Ссылка vpn:// для приложения AmneziaVPN ----------
@@ -146,6 +142,7 @@ export function buildVpnLink(db: Db, client: Client): string {
     S1: String(o.S1), S2: String(o.S2),
     last_config: JSON.stringify(lastConfig),
     port: String(s.port),
+    protocol_version: o.version === '3.1' ? '3' : '2',
     transport_proto: 'udp'
   };
   if (o.version !== '1.5') {
@@ -160,8 +157,8 @@ export function buildVpnLink(db: Db, client: Client): string {
     if (String(o.ContentPaddingAddition ?? '') !== '') awg.ContentPaddingAddition = String(o.ContentPaddingAddition);
   }
   const payload = {
-    containers: [{ awg, container: 'amnezia-awg' }],
-    defaultContainer: 'amnezia-awg',
+    containers: [{ awg, container: 'amnezia-awg2' }],
+    defaultContainer: 'amnezia-awg2',
     description: `AWG ${o.version}: ${client.name}`,
     dns1,
     dns2,
